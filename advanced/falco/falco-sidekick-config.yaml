@@ -1,0 +1,108 @@
+################################################################################
+# Falco Sidekick Deployment & Config
+#
+# This file deploys Falco Sidekick, which receives Falco events and forwards
+# them to external services (Slack, AWS services, etc.). Adjust outputs as needed.
+#
+# Steps:
+# 1. Ensure your Falco DaemonSet references sidekick as an output (see "program_output" in Falco config).
+# 2. Apply this config in the same privileged-namespace as Falco.
+# 3. Update Slack webhook & optional IRSA references if you want AWS logging.
+################################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falco-sidekick
+  namespace: privileged-namespace
+  labels:
+    app: falco-sidekick
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falco-sidekick
+  template:
+    metadata:
+      labels:
+        app: falco-sidekick
+    spec:
+      serviceAccountName: falco-sidekick-sa
+      containers:
+      - name: falco-sidekick
+        image: falcosecurity/falco-sidekick:latest
+        # If you want to store logs in CloudWatch, IRSA can be used here
+        env:
+          # Slack output
+          - name: FALCOSIDEKICK_SLACK_WEBHOOKURL
+            value: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+          - name: FALCOSIDEKICK_SLACK_CHANNEL
+            value: "#falco-alerts"
+          - name: FALCOSIDEKICK_SLACK_USERNAME
+            value: "FalcoSidekick"
+          - name: FALCOSIDEKICK_SLACK_ICON
+            value: ":rotating_light:"
+          # Additional outputs if needed (uncomment as appropriate)
+          # - name: FALCOSIDEKICK_AWS_REGION
+          #   value: "us-east-1"
+          # - name: FALCOSIDEKICK_CLOUDWATCHLOGS_REGION
+          #   value: "us-east-1"
+          # - name: FALCOSIDEKICK_CLOUDWATCHLOGS_LOGGROUP
+          #   value: "falco-logs"
+        ports:
+        - name: http
+          containerPort: 2801
+        # You can add resource limits if needed
+        # resources:
+        #   requests:
+        #     cpu: 50m
+        #     memory: 128Mi
+        #   limits:
+        #     cpu: 100m
+        #     memory: 256Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falco-sidekick-sa
+  namespace: privileged-namespace
+  annotations:
+    # If using AWS IRSA for CloudWatch or S3:
+    # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/falco-sidekick-logs-irsa"
+    #
+    # Ensure you attach an IAM policy that allows logs:PutLogEvents, logs:CreateLogGroup, etc.
+    #
+    # Example policy snippet:
+    # {
+    #   "Version": "2012-10-17",
+    #   "Statement": [
+    #     {
+    #       "Effect": "Allow",
+    #       "Action": [
+    #         "logs:CreateLogGroup",
+    #         "logs:CreateLogStream",
+    #         "logs:PutLogEvents"
+    #       ],
+    #       "Resource": "*"
+    #     }
+    #   ]
+    # }
+spec:
+  automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: falco-sidekick-svc
+  namespace: privileged-namespace
+  labels:
+    app: falco-sidekick
+spec:
+  type: ClusterIP
+  selector:
+    app: falco-sidekick
+  ports:
+    - port: 2801
+      targetPort: 2801
+      protocol: TCP
+      name: http

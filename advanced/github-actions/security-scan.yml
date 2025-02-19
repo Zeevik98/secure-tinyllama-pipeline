@@ -1,0 +1,65 @@
+################################################################################
+# security-scan.yml
+#
+# This workflow triggers ephemeral scanning jobs (SonarQube for SAST, ZAP for DAST)
+# against the changed code before merges. It can block PR merges if vulnerabilities
+# exceed a certain threshold.
+################################################################################
+
+name: SecurityScan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  ephemeral-scans:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: "us-east-1"
+      # Additional environment variables for scanning configurations
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          # Either pass credentials or use OIDC
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsRole
+          role-session-name: ephemeral-scans
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name YOUR_EKS_CLUSTER --region $AWS_REGION
+
+      - name: Run SonarQube ephemeral job
+        run: |
+          kubectl apply -f infrastructure/kubernetes/security-namespace/scanning-sa.yaml
+          kubectl apply -f infrastructure/kubernetes/security-namespace/sonarqube-job.yaml
+          kubectl wait --for=condition=complete job/sonarqube-scan -n non-privileged-namespace --timeout=300s
+          kubectl logs job/sonarqube-scan -n non-privileged-namespace
+
+      - name: Cleanup SonarQube ephemeral job
+        run: |
+          kubectl delete job sonarqube-scan -n non-privileged-namespace || true
+
+      - name: Run ZAP ephemeral job
+        run: |
+          kubectl apply -f infrastructure/kubernetes/security-namespace/zap-job.yaml
+          kubectl wait --for=condition=complete job/zap-scan -n non-privileged-namespace --timeout=600s
+          kubectl logs job/zap-scan -n non-privileged-namespace
+
+      - name: Cleanup ZAP ephemeral job
+        run: |
+          kubectl delete job zap-scan -n non-privileged-namespace || true
+
+      - name: Parse and Evaluate Scan Results
+        run: |
+          # Optionally parse results from S3 or job logs. If vulnerabilities above threshold -> fail the job.
+          echo "Check vulnerabilities. If critical found, exit 1."
+          # A real script might grep or parse JSON logs from S3.
+          # exit 1 if above threshold => Pull Request will be blocked.

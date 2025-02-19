@@ -1,0 +1,56 @@
+################################################################################
+# Advanced Istio Authorization Policy
+#
+# This file demonstrates fine-grained access control in the mesh:
+# - Restricts cross-namespace calls
+# - Enforces that only pods with certain labels can reach a given service
+#
+# Usage:
+# - Apply in the same namespace as the target service(s),
+#   or in "istio-system" for a global policy with a match selector.
+################################################################################
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: advanced-authz-policy
+  namespace: non-privileged-namespace
+spec:
+  # If we omit "selector", this policy applies to every workload in the namespace.
+  # We can specify "selector" if we want to apply to a specific app:
+  # selector:
+  #   matchLabels:
+  #     app: my-secure-service
+
+  # Deny all traffic by default, then we add explicit rules to allow certain requests.
+  # Alternatively, we can use ALLOW-by-default and specify a deny rule. It's up to the design.
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        # Only allow requests from workloads in the same "non-privileged-namespace"
+        namespaces: ["non-privileged-namespace"]
+      # Additionally, we could match a label if we only trust a specific app:
+      # principals: ["cluster.local/ns/non-privileged-namespace/sa/frontend-sa"]
+    to:
+    - operation:
+        # Limit to GET or POST requests. (HTTP-based if you have an HTTP filter chain.)
+        methods: ["GET", "POST"]
+        # If you have multiple services in the same namespace, you can specify hosts here.
+        # hosts: ["myservice.non-privileged-namespace.svc.cluster.local"]
+  - from:
+    - source:
+        # Allow a second namespace "trusted-partner" for a certain operation:
+        namespaces: ["trusted-partner"]
+    to:
+    - operation:
+        methods: ["POST"]
+        # We can specify paths if we have a gateway or virtual service routing HTTP paths
+        # paths: ["/api/v2/secure-endpoint"]
+
+################################################################################
+# Additional Comments:
+# - You can create a deny policy in a separate YAML if you'd rather default-allow.
+# - This example only shows ALLOW rules, but an explicit "deny" rule can be used for
+#   suspicious patterns or known malicious requests.
+################################################################################

@@ -1,0 +1,54 @@
+################################################################################
+# Extended Falco Rules
+#
+# This file adds advanced Falco rules for real-world threats like cryptomining,
+# suspicious kernel module loads, or privileged process usage. It supplements
+# any default Falco rules you already have (e.g., from the official Falco config).
+#
+# Usage:
+# - Merge these rules into your existing Falco config map, or apply them as
+#   a separate "rules_file" reference in falco.yaml.
+# - Ensure your Falco DaemonSet is running in a privileged namespace that
+#   is excluded from OPA Gatekeeper constraints.
+################################################################################
+
+# Detect attempts to run known cryptominer binaries
+- rule: Detect Known Cryptominer Process
+  desc: "A process name associated with cryptomining was spawned."
+  condition: (evt.type = execve) and proc.name in ("xmrig", "minerd", "ethminer", "cpuminer")
+  output: "CryptoMiner process started (command=%proc.cmdline user=%user.name container=%container.name)"
+  priority: WARNING
+  tags: [mitre_execution, crypto]
+
+# Detect suspicious changes to /etc (e.g., potential config tampering)
+- rule: Write below etc advanced
+  desc: "Writing to /etc is a strong indicator of config/credential tampering."
+  condition: evt.type in (open, creat) and fd.name startswith /etc and not exe_running_docker_save
+  output: "Write to /etc (command=%proc.cmdline user=%user.name file=%fd.name container=%container.name)"
+  priority: WARNING
+  tags: [mitre_privilege_escalation, container, host]
+
+# Detect kernel module insertion or removal
+- rule: Kernel module insertion or removal
+  desc: "Detect attempts to insert or remove kernel modules via insmod, rmmod, modprobe"
+  condition: evt.type = execve and proc.name in ("insmod", "modprobe", "rmmod")
+  output: "Kernel module operation (command=%proc.cmdline user=%user.name container=%container.name)"
+  priority: ERROR
+  tags: [host, container, mitre_privilege_escalation]
+
+# Detect attempts to set the sticky bit on a binary
+- rule: Sticky bit set on a binary
+  desc: "Detect file chmod giving setuid/setgid bits which can lead to privilege escalation."
+  condition: chmod and (fd.type=file) and ((evt.arg.mode & 04000) = 04000 or (evt.arg.mode & 02000) = 02000)
+  output: "Sticky bit set on file (file=%fd.name mode=%evt.arg.mode user=%user.name container=%container.name)"
+  priority: ERROR
+  tags: [mitre_privilege_escalation, host]
+
+# Detect shell spawning inside a container with high privileges
+- rule: High-privilege container shell
+  desc: "Alert on a shell in a container that has effective capabilities or is privileged."
+  condition: container and spawned_process and proc.name in ("sh","bash","zsh") and container.privileged=true
+  output: "Privileged container shell spawned (command=%proc.cmdline user=%user.name container=%container.name)"
+  priority: CRITICAL
+  tags: [container, privileged, mitre_execution]
+

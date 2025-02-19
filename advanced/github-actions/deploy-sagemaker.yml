@@ -1,0 +1,72 @@
+################################################################################
+# deploy-sagemaker.yml
+#
+# Demonstrates a multi-step pipeline that:
+# 1. Runs Terraform for Sagemaker resources
+# 2. Optionally configures or updates the Sagemaker endpoint
+# 3. Posts Slack notifications upon success/failure
+# 4. (Optional) partial or canary approach for Sagemaker
+################################################################################
+
+name: DeploySageMaker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-sagemaker-job:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: "us-east-1"
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      # Additional environment variables for partial rollouts, etc.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsRole
+          role-session-name: sagemaker-deploy
+
+      - name: Terraform Init
+        run: |
+          cd infrastructure/terraform/sagemaker
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: Optional Partial Rollout
+        run: |
+          # Example script to do a partial / canary approach for SageMaker endpoints.
+          # E.g., keep 10% traffic on old endpoint, 90% on new endpoint. 
+          echo "Implement partial rollout logic if needed."
+
+      - name: Test SageMaker Endpoint
+        run: |
+          # You could run a quick invocation test using AWS CLI or a script
+          echo "Invoking the newly deployed TinyLlama endpoint to validate it responds."
+
+      - name: Slack Notification on success
+        if: success()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"SageMaker deployment succeeded!"}' \
+            $SLACK_WEBHOOK_URL
+
+      - name: Slack Notification on failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"SageMaker deployment failed :("}' \
+            $SLACK_WEBHOOK_URL

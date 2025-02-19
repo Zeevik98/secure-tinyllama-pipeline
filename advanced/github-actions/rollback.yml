@@ -1,0 +1,56 @@
+################################################################################
+# rollback.yml
+#
+# This workflow demonstrates how to revert or roll back infrastructure or code
+# if ephemeral scanning fails post-deployment, or if a new commit breaks production.
+################################################################################
+
+name: Rollback
+
+on:
+  workflow_dispatch:
+    # You can also trigger automatically if certain events occur (e.g. if ephemeral scanning logs detect critical issues).
+
+jobs:
+  rollback-job:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: "us-east-1"
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsRole
+          role-session-name: rollback
+
+      - name: Identify Last Known Good Commit
+        run: |
+          # This is a simplistic approach. In real usage, you might store the last known stable commit in a parameter store or a tag.
+          # Here we just pick HEAD~1. You can expand logic as needed.
+          echo "LAST_KNOWN_GOOD=HEAD~1" >> $GITHUB_ENV
+
+      - name: Revert to Last Known Good
+        run: |
+          git checkout ${{ env.LAST_KNOWN_GOOD }}
+          # Now we can re-apply Terraform or revert a Helm chart. 
+          # Or open an automatic rollback PR, etc.
+
+      - name: Terraform Rollback
+        run: |
+          cd infrastructure/terraform/sagemaker
+          terraform init
+          # This will revert the infra to the last known good config from the HEAD~1 code
+          terraform apply -auto-approve
+
+      - name: Slack Notification
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"Rollback has been executed, cluster/state reverted to last known good commit."}' \
+            $SLACK_WEBHOOK_URL

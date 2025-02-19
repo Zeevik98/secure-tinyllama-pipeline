@@ -1,0 +1,55 @@
+################################################################################
+# Istio Egress Restrictions
+#
+# This file showcases how to block or allow external traffic from the mesh,
+# aligning with zero-trust or "deny by default" external calls.
+################################################################################
+
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default-egress-restrictions
+  namespace: non-privileged-namespace
+spec:
+  egress:
+  # By default, disallow all external traffic except for certain whitelisted hosts
+  # For internal cluster traffic, sidecars talk to *.svc.cluster.local
+  - hosts:
+    - "non-privileged-namespace/*"
+    - "istio-system/*"
+    - "kube-system/*"
+    - "*/prometheus.*"    # if metrics scraping is needed
+    - "*/grafana.*"
+    # For external whitelisting, specify it like so:
+    # - "googleapis.com"   # If you want to call Google APIs
+  # This "Sidecar" CR can be repeated or specialized for specific workloads.
+  # You can also do a global default in "istio-system" that forbids egress to unknown hosts.
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: external-svc-whitelist
+  namespace: non-privileged-namespace
+spec:
+  hosts:
+  - "googleapis.com"
+  gateways:
+  - mesh
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: "googleapis.com"
+  # This example allows traffic specifically to googleapis.com.
+  # Everything else is implicitly denied by the Sidecar config above.
+
+################################################################################
+# Additional Comments:
+# - The "Sidecar" resource scoping ensures only hosts defined in the egress block
+#   or the VirtualService are permitted.
+# - For a strict "deny all" posture, you only define the hosts you absolutely trust.
+# - This approach is common in zero-trust setups so workloads can’t phone home
+#   to random external IPs.
+################################################################################

@@ -1,0 +1,53 @@
+################################################################################
+# Istio Telemetry Config
+#
+# This file enables custom metrics or tracing for your services. You can specify
+# a variety of settings for request classification, mesh-level overrides, etc.
+################################################################################
+
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: custom-telemetry
+  namespace: istio-system
+spec:
+  # "Selector" can target specific workloads in the mesh
+  # or apply mesh-wide. If omitted, it might apply to all workloads in the cluster.
+  # selector:
+  #   matchLabels:
+  #     app: your-service
+
+  # Tracing config
+  tracing:
+    - providers:
+        - name: "zipkin"            # or "jaeger" if using Jaeger
+          # Additional provider config can go here if needed
+      # We can specify sampling rate, custom tags, etc.
+      randomSamplingPercentage: 50.0   # 50% sampling (example, default is often 1%)
+
+  # Metrics config
+  metrics:
+    - overrides:
+        - match:
+            # Match all requests or specify certain traffic
+            # match: { destination_service: "myservice.non-privileged-namespace.svc.cluster.local" }
+          enabled: true
+          # set to false if you want to disable certain default metrics
+      # You can define custom tags or more advanced grouping if needed.
+
+  # Access logs
+  accessLogging:
+    - match:
+        # If you only want to log certain requests or turn off logs for certain paths
+        # You can specify conditions here
+        # match: { destination_port: 8080 }
+      providers:
+        - name: envoy            # default provider
+      disabled: false            # set true if you want to disable logs
+
+################################################################################
+# Additional Comments:
+# - This example modifies sampling to 50%, logs all traffic, and keeps default metrics.
+# - You can create different Telemetry resources for different namespaces or workloads.
+# - If you're using Jaeger or Zipkin, make sure you have the correct "providers" name.
+################################################################################
