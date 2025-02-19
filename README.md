@@ -111,7 +111,6 @@ Review branch protection rules and security guidelines.
 All code changes must pass ephemeral scanning (SAST/DAST) before merges.
 Use PRs for any adjustments to Terraform or Kubernetes manifests.
 
-## License ##
 
 
 ### Notes
