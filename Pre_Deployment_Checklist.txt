@@ -1,0 +1,62 @@
+Below is a step-by-step pre-deployment checklist to ensure everything’s set up before you run terraform apply or trigger your CI/CD pipeline:
+
+AWS Account & IAM Setup
+
+1.Confirm you have an AWS account with admin or power-user privileges to create VPCs, EKS, etc.
+(Optional) Create a dedicated IAM user or role for Terraform with minimal permissions to manage EKS, VPC, S3, etc.
+S3 Bucket & DynamoDB Table (Terraform State)
+
+2.Create an S3 bucket for remote Terraform state.
+(Optional) Create a DynamoDB table for state locking (recommended in production).
+
+
+3.Create a KMS key in AWS.
+Note the key’s ARN and ensure your Terraform user/role can use it.
+GitHub Secrets (If using GitHub Actions)
+
+4.Set up AWS credentials in your GitHub repo settings under “Secrets and variables” → “Actions”. Typically you’d store:
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+Possibly AWS_REGION or you can define that in the workflow.
+If you’re using GitHub OIDC to assume a role, configure that in AWS IAM and store the role ARN in a GitHub secret.
+
+5.Local Tools (If you’re deploying from your local machine)
+Install Terraform (≥1.3), kubectl, and optionally Helm.
+Install or configure AWS CLI with correct credentials, run on CLI: aws configure.
+
+6.Terraform Setup
+In each Terraform module folder (networking, eks, sagemaker), run terraform init.
+Create or edit terraform.tfvars.prod with real values (VPC CIDR, subnets, region, KMS key ARN, etc.).
+(Optional) For the multi-stage approach, output networking resources and feed them into EKS/SageMaker modules.
+
+7.Run terraform apply
+E.g., in networking, do terraform apply -auto-approve -var-file="terraform.tfvars.prod".
+Wait until it finishes.
+Copy outputs (e.g., vpc_id, private_subnets) into the eks terraform.tfvars.prod.
+Apply EKS, then apply Sagemaker.
+
+8.Initialize EKS Cluster Access
+Once EKS is up, run aws eks update-kubeconfig --name <YOUR CLUSTER NAME> --region <YOUR REGION>.
+Confirm you can connect with kubectl get nodes.
+
+9.Install ArgoCD
+If you’re doing it manually, run the Helm commands or your deploy-pipeline.sh.
+Check if the ArgoCD server is up: kubectl get pods -n argocd.
+
+10.Set Up CI/CD
+Update .github/workflows/main.yml to reference your EKS cluster name, region, any environment variables, etc.
+Commit & push.
+Trigger a pull request to see ephemeral scanning, etc.
+
+
+
+(Optional) Additional Tools
+Falco: Deploy via Helm or ArgoCD.
+OPA Gatekeeper: Deploy and create constraints.
+Secrets Store CSI: If you want to read from Secrets Manager directly.
+Validate
+After everything’s deployed, check:
+kubectl get pods -n non-privileged-namespace (SonarQube/ZAP ephemeral pods appear on scanning).
+terraform state list (All infra resources are managed).
+AWS Console (EKS cluster, SageMaker instance, logs, etc.).
+kubectl logs for scanning pods to see results.

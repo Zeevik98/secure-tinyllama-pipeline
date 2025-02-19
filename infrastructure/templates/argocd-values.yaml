@@ -1,0 +1,12 @@
+server:
+  service:
+    type: ClusterIP
+    port: 443
+  config:
+    url: https://argocd.yourdomain.com
+    oidc.config: |
+      name: GitHub
+      issuer: https://github.com
+      clientID: <yourclientid>
+      clientSecret: <yoursecret>
+      # Add scopes or additional config as needed

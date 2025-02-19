@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-configmap
+  namespace: privileged-namespace
+data:
+  falco.yaml: |
+    json_output: true
+    syslog_output: false
+    # Minimal Falco config for demonstration purposes.
+    # If you want to specify a custom rules file, see below.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-top10-rules
+  namespace: privileged-namespace
+data:
+  falco-rules.yaml: |
+    # Example "top 10" minimal Falco ruleset:
+
+    - rule: Terminal shell in container
+      desc: "Alert on a shell spawning in a container"
+      condition: container and spawned_process and proc.name in ("bash", "sh", "zsh")
+      output: "Terminal shell in container (user=%user.name command=%proc.cmdline)"
+      priority: WARNING
+
+    - rule: Write below etc
+      desc: "Unauthorized attempt to write to /etc"
+      condition: evt.type in (open, creat) and fd.name startswith /etc and not exe_running_docker_save
+      output: "File below /etc opened for writing (user=%user.name command=%proc.cmdline file=%fd.name)"
+      priority: WARNING
+
+    - rule: Creating symlinks
+      desc: "Untrusted symlink creation"
+      condition: evt.type=symlink and container
+      output: "Container symlink creation (command=%proc.cmdline file=%fd.name)"
+      priority: WARNING
+
+    # Add ~7 more essential Falco rules focusing on suspicious container or host activity
+    # e.g. unexpected outbound connections, changes to binary dirs, or loading kernel modules

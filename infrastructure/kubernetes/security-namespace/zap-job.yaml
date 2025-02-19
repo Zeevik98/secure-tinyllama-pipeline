@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zap-scan
+  namespace: non-privileged-namespace
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: zap-scan
+    spec:
+      serviceAccountName: scanning-sa
+      restartPolicy: Never
+      containers:
+      - name: zap
+        # Replace with your ECR name for ZAP
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/owasp-zap:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - >
+            echo "Starting ZAP scan...";
+            zap-baseline.py -t https://PLACEHOLDER-SAGEMAKER-URL -r /tmp/zapreport.html;
+            echo "Scan complete; uploading to S3...";
+            aws s3 cp /tmp/zapreport.html s3://YOUR_S3_BUCKET_FOR_REPORTS/zap-report.html;
+            echo "Uploaded ZAP report to S3.";
+        env:
+          - name: AWS_REGION
+            value: "us-east-1"

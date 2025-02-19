@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: security-namespace-app
+  namespace: argocd
+spec:
+  destination:
+    namespace: non-privileged-namespace
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: 'https://github.com/YOUR_ORG/YOUR_REPO.git'
+    targetRevision: main
+    path: infrastructure/kubernetes/security-namespace
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-app
+  namespace: argocd
+spec:
+  destination:
+    namespace: istio-system
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: 'https://github.com/YOUR_ORG/YOUR_REPO.git'
+    targetRevision: main
+    path: infrastructure/kubernetes/istio
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falco-app
+  namespace: argocd
+spec:
+  destination:
+    namespace: privileged-namespace
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: 'https://github.com/YOUR_ORG/YOUR_REPO.git'
+    targetRevision: main
+    path: infrastructure/kubernetes/falco
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

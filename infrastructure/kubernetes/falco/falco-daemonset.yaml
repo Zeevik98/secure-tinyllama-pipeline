@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: privileged-namespace
+  labels:
+    app: falco
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      hostPID: true
+      hostNetwork: true
+      tolerations:
+        - operator: Exists
+      containers:
+      - name: falco
+        image: falcosecurity/falco:latest
+        securityContext:
+          privileged: true  # Falco must run privileged to inspect host syscalls
+        volumeMounts:
+          - name: dev-fs
+            mountPath: /host/dev
+          - name: proc-fs
+            mountPath: /host/proc
+            readOnly: true
+          - name: boot-fs
+            mountPath: /host/boot
+            readOnly: true
+          - name: lib-modules
+            mountPath: /host/lib/modules
+            readOnly: true
+          - name: etc-falco
+            mountPath: /etc/falco
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
+      volumes:
+        - name: dev-fs
+          hostPath:
+            path: /dev
+        - name: proc-fs
+          hostPath:
+            path: /proc
+        - name: boot-fs
+          hostPath:
+            path: /boot
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: etc-falco
+          configMap:
+            name: falco-configmap
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falco
+  namespace: privileged-namespace
+  # If you want Falco to push logs to external services, annotate with IRSA role:
+  # annotations:
+  #   eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/FalcoIRSA"

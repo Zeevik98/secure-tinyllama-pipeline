@@ -1,0 +1,91 @@
+# infrastructure/ci-cd/argocd/argocd-rbac.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+data:
+  policy.default: role:readonly
+
+  policy.csv: |
+    # Project Admin role
+    p, role:project-admin, applications, *, secure-eks-pipeline/*, allow
+    p, role:project-admin, projects, get, secure-eks-pipeline, allow
+
+    # Security Team role
+    p, role:security-team, applications, *, secure-eks-pipeline/security-*, allow
+    p, role:security-team, projects, get, secure-eks-pipeline, allow
+
+    # Monitoring Team role
+    p, role:monitoring-team, applications, *, secure-eks-pipeline/monitoring-*, allow
+    p, role:monitoring-team, projects, get, secure-eks-pipeline, allow
+
+    # DevOps Team role
+    p, role:devops-team, applications, *, *, allow
+    p, role:devops-team, projects, *, *, allow
+    p, role:devops-team, clusters, *, *, allow
+
+    # Read-only role
+    p, role:readonly, applications, get, *, allow
+    p, role:readonly, projects, get, *, allow
+
+  # Group bindings
+  policy.binddings: |
+    g, secure-eks-admins, role:project-admin
+    g, security-team, role:security-team
+    g, monitoring-team, role:monitoring-team
+    g, devops-team, role:devops-team
+    g, viewers, role:readonly
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  # SSO Configuration (if using AWS SSO)
+  url: https://argocd.your-domain.com
+  
+  # Repository credentials
+  repositories: |
+    - url: https://github.com/your-org/secure-eks-pipeline
+      type: git
+      insecure: false
+      githubAppID: YOUR_GITHUB_APP_ID
+      githubAppInstallationID: YOUR_GITHUB_APP_INSTALLATION_ID
+      githubAppPrivateKey: $GITHUB_APP_PRIVATE_KEY
+
+  # Resource tracking
+  resource.customizations: |
+    argoproj.io/Application:
+      health.lua: |
+        hs = {}
+        hs.status = "Progressing"
+        hs.message = ""
+        if obj.status ~= nil then
+          if obj.status.health ~= nil then
+            hs.status = obj.status.health.status
+            if obj.status.health.message ~= nil then
+              hs.message = obj.status.health.message
+            end
+          end
+        end
+        return hs
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-secret
+  namespace: argocd
+type: Opaque
+stringData:
+  # Admin password - should be replaced with actual hashed password
+  admin.password: $2a$10$YOUR_HASHED_PASSWORD
+  # GitHub App private key
+  github-app-private-key: |
+    -----BEGIN RSA PRIVATE KEY-----
+    YOUR_GITHUB_APP_PRIVATE_KEY_HERE
+    -----END RSA PRIVATE KEY-----

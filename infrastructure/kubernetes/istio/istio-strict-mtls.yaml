@@ -1,0 +1,37 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  host: "*.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+      # If your cluster supports TLS 1.3, keep this:
+      minProtocolVersion: TLSv1_3
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: default-allow-same-namespace
+  namespace: istio-system
+spec:
+  # Example: Basic policy that allows traffic within the mesh.
+  # You can refine to require sidecar injection or restrict cross-namespace traffic.
+  rules:
+    - from:
+      - source:
+          namespaces: ["*"]
+      to:
+      - operation:
+          hosts: ["*.svc.cluster.local"]

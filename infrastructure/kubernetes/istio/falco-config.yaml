@@ -1,0 +1,48 @@
+# infrastructure/kubernetes/security-namespace/falco-config.yaml
+
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: falco
+  namespace: falco-system
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: falco
+      version: "3.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: falco
+        namespace: falco-system
+  values:
+    customRules:
+      security-scanner-rules.yaml: |-
+        - rule: Scanner Pod Privilege Escalation
+          desc: Detect privilege escalation attempts in security scanner pods
+          condition: >
+            (evt.type in (setuid, setgid) and 
+             k8s.ns.name="security" and 
+             k8s.pod.label.app in (sonarqube, zap-scanner))
+          output: "Privilege escalation attempt in security scanner pod (pod=%k8s.pod.name user=%user.name command=%proc.cmdline)"
+          priority: CRITICAL
+
+        - rule: Unauthorized Network Access By Scanners
+          desc: Detect unauthorized network access by scanner pods
+          condition: >
+            (evt.type = connect and 
+             k8s.ns.name="security" and 
+             k8s.pod.label.app in (sonarqube, zap-scanner) and 
+             not fd.sip.name endswith ".cluster.local")
+          output: "Scanner pod attempting unauthorized network access (pod=%k8s.pod.name connection=%fd.name)"
+          priority: WARNING
+
+        - rule: Scanner Pod File System Tampering
+          desc: Detect file system tampering in scanner pods
+          condition: >
+            (evt.type in (open, write) and 
+             k8s.ns.name="security" and 
+             k8s.pod.label.app in (sonarqube, zap-scanner) and 
+             fd.directory in (/etc, /var/run/docker.sock, /proc))
+          output: "File system tampering detected in scanner pod (pod=%k8s.pod.name file=%fd.name)"
+          priority: CRITICAL

@@ -1,0 +1,74 @@
+# infrastructure/terraform/networking/terraform.tfvars.prod
+
+# Region and Project Configuration
+aws_region   = "us-east-1"
+project_name = "secure-eks-pipeline"
+environment  = "prod"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+
+# Subnet Configuration
+public_subnet_cidrs = [
+  "10.0.1.0/24",  # us-east-1a
+  "10.0.2.0/24",  # us-east-1b
+  "10.0.3.0/24"   # us-east-1c
+]
+
+private_subnet_cidrs = [
+  "10.0.4.0/24",  # us-east-1a - EKS workers
+  "10.0.5.0/24",  # us-east-1b - EKS workers
+  "10.0.6.0/24"   # us-east-1c - SageMaker & security workloads
+]
+
+availability_zones = [
+  "us-east-1a",
+  "us-east-1b",
+  "us-east-1c"
+]
+
+# Cluster Configuration
+cluster_name = "secure-eks-prod"
+
+# DNS Configuration
+enable_dns_hostnames = true
+enable_dns_support   = true
+
+# NAT Gateway Configuration
+enable_nat_gateway   = true
+single_nat_gateway   = true  # Use single NAT for cost optimization in prod
+
+# Security Configuration
+enable_flow_logs         = true
+flow_logs_retention_days = 7
+
+# VPC Endpoints Configuration
+enable_vpce_endpoints = true
+vpc_endpoint_services = [
+  "sagemaker.api",
+  "sagemaker.runtime",
+  "ecr.api",
+  "ecr.dkr",
+  "s3",
+  "logs",
+  "sts",
+  "cloudwatch"
+]
+
+# Resource Tagging
+tags = {
+  Terraform     = "true"
+  Application   = "secure-eks-pipeline"
+  Environment   = "prod"
+  BusinessUnit  = "technology"
+  CostCenter    = "infrastructure"
+  SecurityLevel = "high"
+  Compliance    = "pci-dss"
+}
+
+# Security Group Configuration
+allowed_sagemaker_cidr_blocks = [
+  "10.0.4.0/24",
+  "10.0.5.0/24",
+  "10.0.6.0/24"
+]

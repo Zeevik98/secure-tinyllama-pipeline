@@ -1,0 +1,85 @@
+name: CI-CD-Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run Linting
+        run: |
+          echo "Running lint..."
+
+      - name: Run Unit Tests
+        run: |
+          echo "Running unit tests..."
+
+  static-security-scan:
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name YOUR_CLUSTER_NAME --region YOUR_REGION
+
+      - name: Deploy or Update Gatekeeper Constraints
+        run: |
+          kubectl apply -f infrastructure/kubernetes/security-namespace/gatekeeper.yaml -n non-privileged-namespace
+          # Alternatively, you can apply this in argocd or a separate step
+
+      - name: Apply SonarQube Job
+        run: |
+          kubectl apply -f infrastructure/kubernetes/security-namespace/scanning-sa.yaml
+          kubectl apply -f infrastructure/kubernetes/security-namespace/sonarqube-job.yaml
+          kubectl wait --for=condition=complete job/sonarqube-scan -n non-privileged-namespace --timeout=300s
+          kubectl logs job/sonarqube-scan -n non-privileged-namespace
+
+      - name: Cleanup SonarQube Job
+        run: |
+          kubectl delete job sonarqube-scan -n non-privileged-namespace || true
+
+  deploy-to-sagemaker-test:
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Terraform Apply - Sagemaker
+        run: |
+          cd infrastructure/terraform/sagemaker
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Apply ZAP Job
+        run: |
+          # Re-apply scanning SA in case it didn't exist
+          kubectl apply -f ../../kubernetes/security-namespace/scanning-sa.yaml
+          kubectl apply -f ../../kubernetes/security-namespace/zap-job.yaml
+          kubectl wait --for=condition=complete job/zap-scan -n non-privileged-namespace --timeout=600s
+          kubectl logs job/zap-scan -n non-privileged-namespace
+
+      - name: Cleanup ZAP Job
+        run: |
+          kubectl delete job zap-scan -n non-privileged-namespace || true
+
+  finalize-deployment:
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Sagemaker Notebook Public
+        run: |
+          echo "Switching SageMaker from private to public..."
+
+      - name: Send SNS Notification
+        run: |
+          aws sns publish --topic-arn "arn:aws:sns:YOUR_REGION:YOUR_ACCOUNT_ID:YOUR_TOPIC" \
+            --message "Deployment succeeded!"

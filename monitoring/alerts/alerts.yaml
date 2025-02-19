@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: example-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: example
+    rules:
+    - alert: HighErrorRate
+      expr: increase(kube_pod_container_status_restarts_total[5m]) > 5
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High container restart rate"
+        description: "Container restarted more than 5 times in 5 minutes."

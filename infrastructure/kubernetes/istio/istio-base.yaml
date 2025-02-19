@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    istio-operator-managed: "true"
+---
+# (Optional) If you rely on raw YAML for Istio CRDs, place them here.
+# Typically you'd install CRDs with `istioctl install` or a Helm chart, so we omit them.

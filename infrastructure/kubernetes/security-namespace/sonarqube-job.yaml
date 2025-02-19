@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sonarqube-scan
+  namespace: non-privileged-namespace
+spec:
+  # If a pod fails, don't retry excessively. Adjust as needed.
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: sonarqube-scan
+    spec:
+      serviceAccountName: scanning-sa
+      restartPolicy: Never
+      containers:
+      - name: sonar-scanner
+        # Replace <AWS_ACCOUNT_ID>, <REGION>, and <REPO_NAME> with your actual ECR repository details.
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/sonar-scanner-cli:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - >
+            echo "Starting SonarQube scan...";
+            # If you have credentials or a specific sonar-project.properties, you can place them here
+            # or fetch them from AWS Secrets Manager using the CSI driver.
+            
+            # Example scanning steps. You might have sonar-scanner commands:
+            # sonar-scanner -Dsonar.projectKey=<YOUR_PROJECT> -Dsonar.sources=.
+            
+            # Simulate storing results in a local file:
+            echo "SonarQube result: OK" > /tmp/sonar-result.txt;
+            # Upload to S3
+            aws s3 cp /tmp/sonar-result.txt s3://YOUR_S3_BUCKET_FOR_REPORTS/sonar-result.txt;
+            echo "Uploaded SonarQube result to S3.";
+        env:
+          - name: AWS_REGION
+            value: "us-east-1"
+          # If needed, define more environment variables for Sonar server auth, etc.

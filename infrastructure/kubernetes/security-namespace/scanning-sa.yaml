@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scanning-sa
+  namespace: non-privileged-namespace
+  annotations:
+    # Replace with your scanning IRSA role ARN from AWS
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/ScanningIRSA"

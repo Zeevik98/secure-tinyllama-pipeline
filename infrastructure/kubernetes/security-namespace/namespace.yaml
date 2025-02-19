@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: privileged-namespace
+  labels:
+    istio-injection: enabled
+    # Note: no pod-security label, so OPA constraints won't block privileged pods here
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: non-privileged-namespace
+  labels:
+    istio-injection: enabled
+    # Pod Security restricted
+    pod-security.kubernetes.io/enforce: "restricted"

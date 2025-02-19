@@ -1,0 +1,16 @@
+aws_region       = "us-west-2"
+project_name     = "tinyllama-pipeline"
+argocd_namespace = "argocd"
+
+high_availability   = true
+argocd_helm_version = "5.46.7"
+
+github_organization = "your-org"
+github_repository   = "secure-tinyllama-pipeline"
+
+tags = {
+  Environment     = "Production"
+  ManagedBy      = "Terraform"
+  SecurityScanned = "true"
+  Project        = "TinyLlama"
+}

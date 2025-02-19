@@ -1,0 +1,5 @@
+aws_region         = "us-east-1"
+project_name       = "secure-eks-cicd"
+private_subnet_id  = "<SAGEMAKER PRIVATE SUBNET>"
+security_group_id  = "<SECURITY GROUP ID>"
+kms_key_arn        = "arn:aws:kms:us-east-1:123456789012:key/YOUR-KEY-ID"

@@ -1,0 +1,7 @@
+aws_region     = "us-east-1"
+vpc_id         = "<OUTPUT FROM networking module>"
+private_subnets = [
+  "<PRIVATE SUBNET ID1>",
+  "<PRIVATE SUBNET ID2>"
+]
+kms_key_arn    = "arn:aws:kms:us-east-1:123456789012:key/YOUR-KEY-ID"

@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: secure-cicd-project
+  namespace: argocd
+spec:
+  description: "Project for the secure EKS-based pipeline"
+  sourceRepos:
+    - 'https://github.com/YOUR_ORG/YOUR_REPO.git'
+  destinations:
+    - namespace: '*'
+      server: 'https://kubernetes.default.svc'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  namespaceResourceBlacklist:
+    - group: '*'
+      kind: 'ResourceQuota'
