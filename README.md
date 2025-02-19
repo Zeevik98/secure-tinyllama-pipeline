@@ -16,7 +16,8 @@ This repository provides an end-to-end solution for **securely** deploying LLMs,
 
 Below is a high-level view of the system components:
 
-*(Diagram placeholder; will be added later.)*
+![image](https://github.com/user-attachments/assets/5ca33973-d04f-4e3d-9f65-289c2a5e4420)
+
 
 ### Core Components
 
