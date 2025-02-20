@@ -1,6 +1,54 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: opa-gatekeeper-app
+  namespace: argocd
+spec:
+  destination:
+    namespace: opa-system
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: 'https://github.com/YOUR_ORG/YOUR_REPO.git'
+    targetRevision: main
+    path: infrastructure/kubernetes/opa-gatekeeper
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+  syncOptions:
+    - CreateNamespace=true
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "-1"  # Ensures OPA deploys before workloads
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: network-policies-app
+  namespace: argocd
+spec:
+  destination:
+    namespace: kube-system
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: 'https://github.com/YOUR_ORG/YOUR_REPO.git'
+    targetRevision: main
+    path: infrastructure/kubernetes/network-policies
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+  syncOptions:
+    - CreateNamespace=true
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "0"  # Deploys right after OPA
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: security-namespace-app
   namespace: argocd
 spec:
@@ -16,6 +64,9 @@ spec:
     automated:
       prune: true
       selfHeal: true
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "1"  # Deploys after OPA & Network Policies
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -35,6 +86,9 @@ spec:
     automated:
       prune: true
       selfHeal: true
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "2"  # Deploys after Security Namespace
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -54,3 +108,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "3"  # Deploys last to ensure monitoring is active
