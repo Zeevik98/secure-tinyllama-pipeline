@@ -98,6 +98,12 @@ SageMaker instance uses KMS for data at rest.
 Launched in private subnets to restrict direct inbound traffic.
 ZAP scanning can be performed internally if needed for QA or staging checks.
 
+📌 Optimizing Security Scans: Excluding Datasets
+To improve the efficiency of SonarQube security scans, large dataset files (e.g., .csv, .json, .h5) should be manually excluded from scanning configurations.
+
+This helps focus the scan on source code and application logic rather than static data.
+If you're configuring SonarQube, consider defining exclusions in sonar-project.properties.
+
 
 ## Monitoring & Observability ##
 
