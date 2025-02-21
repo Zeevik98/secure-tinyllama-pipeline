@@ -52,3 +52,83 @@
   priority: CRITICAL
   tags: [container, privileged, mitre_execution]
 
+# Detect Execution of a Suspicious Binary Inside a Container
+- rule: Suspicious Binary Execution
+  desc: Detect execution of hacking tools inside a container
+  condition: container and evt.type = execve and proc.name in ("nmap", "netcat", "nc", "wget", "curl", "socat", "tcpdump")
+  output: "ALERT: Suspicious binary %proc.name executed in container %container.id (Pod: %k8s.pod.name, Namespace: %k8s.ns.name)"
+  priority: HIGH
+  tags: [k8s, container, intrusion]
+
+# Detect a Container Running as Root
+- rule: Container Running as Root
+  desc: Detect if a Kubernetes container starts with UID 0 (root privileges)
+  condition: container and evt.type = execve and user.uid = 0
+  output: "ALERT: Container %container.id (Pod: %k8s.pod.name, Namespace: %k8s.ns.name) is running as root!"
+  priority: CRITICAL
+  tags: [k8s, container, security]
+
+# Detect Unexpected Outbound Connections from a Pod
+- rule: Unexpected Outbound Connection
+  desc: Detect outbound network connections to suspicious external IPs from a Kubernetes pod
+  condition: evt.type = connect and not fd.sip in (10.0.0.0/8, 192.168.0.0/16) and fd.lport in (80, 443)
+  output: "ALERT: Suspicious outbound connection from pod %k8s.pod.name in namespace %k8s.ns.name to external IP %fd.sip"
+  priority: HIGH
+  tags: [k8s, network, egress]
+
+# Detect New Terminal Shell in a Running Container
+- rule: Terminal Shell in Container
+  desc: Detect interactive shell in a running container (possible manual attack or debugging)
+  condition: container and shell_procs and evt.type = execve
+  output: "ALERT: Terminal shell detected inside container %container.id (Namespace: %k8s.ns.name, Pod: %k8s.pod.name)"
+  priority: CRITICAL
+  tags: [k8s, container, security]
+
+# Detect Kubernetes Service Account Token Being Read
+- rule: Read Service Account Token
+  desc: Detect attempts to read Kubernetes service account tokens (possible privilege escalation)
+  condition: open_read and fd.name startswith "/var/run/secrets/kubernetes.io/serviceaccount/token"
+  output: "ALERT: Possible credential theft! Process %proc.name tried to read a Kubernetes service account token in pod %k8s.pod.name"
+  priority: CRITICAL
+  tags: [k8s, security, rbac]
+
+# Detect Changes to Critical Kubernetes Configuration Files
+- rule: Modify Kubernetes Config Files
+  desc: Detect modification of Kubernetes-related system files
+  condition: open_write and fd.name in ("/etc/kubernetes/kubelet.conf", "/etc/kubernetes/manifests/kube-apiserver.yaml", "/etc/kubernetes/admin.conf")
+  output: "ALERT: Unauthorized modification detected on Kubernetes config file: %fd.name"
+  priority: CRITICAL
+  tags: [k8s, security, config]
+
+# Detect Privilege Escalation via sudo Inside a Container
+- rule: Sudo Execution in Container
+  desc: Detect execution of `sudo` inside a running Kubernetes container (possible privilege escalation attempt)
+  condition: container and proc.name = sudo
+  output: "ALERT: Sudo command executed inside container %container.id (Pod: %k8s.pod.name)"
+  priority: HIGH
+  tags: [k8s, container, escalation]
+
+# Detect SSH Daemon Running Inside a Container
+- rule: SSH Server in Container
+  desc: Detect an SSH daemon running inside a Kubernetes container (possible backdoor)
+  condition: container and proc.name in ("sshd")
+  output: "ALERT: SSH server detected running inside container %container.id (Pod: %k8s.pod.name)"
+  priority: CRITICAL
+  tags: [k8s, container, intrusion]
+
+# Detect Reverse Shell Execution
+- rule: Reverse Shell Detected
+  desc: Detect execution of a reverse shell inside a Kubernetes container
+  condition: container and evt.type = execve and (proc.args contains "bash -i" or proc.args contains "nc -e /bin/sh")
+  output: "ALERT: Reverse shell detected in container %container.id (Pod: %k8s.pod.name)"
+  priority: CRITICAL
+  tags: [k8s, container, intrusion]
+
+# Detect Creation of a New High-Privilege IAM Role in AWS
+- rule: High-Privilege IAM Role Created
+  desc: Detect if a new IAM role with AdministratorAccess is created
+  condition: evt.type = execve and aws.eventName = "CreateRole" and aws.requestParameters.assumeRolePolicyDocument contains "AdministratorAccess"
+  output: "ALERT: New high-privilege IAM role created in AWS: %aws.requestParameters.roleName"
+  priority: CRITICAL
+  tags: [aws, iam, escalation]
+
