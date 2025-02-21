@@ -132,3 +132,82 @@
   priority: CRITICAL
   tags: [aws, iam, escalation]
 
+#  Detect unauthorized loading of unsigned kernel modules
+- rule: Unsigned Kernel Module Loaded
+  desc: Detect if an unsigned kernel module is loaded into the kernel (possible rootkit)
+  condition: evt.type = execve and proc.name in ("insmod", "modprobe") and not evt.args contains "signed"
+  output: "ALERT: Unsigned kernel module loaded (command=%proc.cmdline user=%user.name container=%container.name)"
+  priority: CRITICAL
+  tags: [kernel, privilege_escalation, rootkit]
+
+#  Detect process injection using ptrace (used by malware & attackers)
+- rule: Process Injection via ptrace
+  desc: Detect if a process is attempting to attach to another using ptrace
+  condition: evt.type = ptrace and not proc.name in ("strace", "gdb", "perf")
+  output: "ALERT: Process injection attempt detected (source=%proc.name target=%evt.args)"
+  priority: HIGH
+  tags: [kernel, privilege_escalation, process_injection]
+
+#  Detect tampering with security logs (deleting /var/log/)
+- rule: Security Log Deletion
+  desc: Detect attempts to delete system logs (potential evidence destruction)
+  condition: open and fd.name startswith "/var/log/" and evt.type in (unlink, unlinkat, rename, renameat)
+  output: "ALERT: Security logs tampering detected (user=%user.name file=%fd.name container=%container.name)"
+  priority: CRITICAL
+  tags: [host, forensics, security_logs]
+
+#  Detect unauthorized kernel debugging (possible exploit development)
+- rule: Unauthorized Kernel Debugging
+  desc: Detect unauthorized access to kernel debugging tools
+  condition: evt.type = execve and proc.name in ("crash", "kexec", "kdb", "kgdb")
+  output: "ALERT: Unauthorized kernel debugging tool executed (process=%proc.name user=%user.name)"
+  priority: HIGH
+  tags: [kernel, forensics, intrusion]
+
+#  Detect raw socket creation (often used in network exploitation)
+- rule: Raw Socket Creation
+  desc: Detect when a process creates a raw socket (used for low-level network attacks)
+  condition: evt.type = socket and evt.args contains "SOCK_RAW"
+  output: "ALERT: Raw socket created (process=%proc.name user=%user.name container=%container.name)"
+  priority: HIGH
+  tags: [network, kernel, exploitation]
+
+#  Detect modification of sensitive system files in /proc or /sys
+- rule: Unauthorized Modification of /proc or /sys
+  desc: Detect writes to critical kernel-related files
+  condition: open_write and fd.name startswith ("/proc/", "/sys/")
+  output: "ALERT: Unauthorized modification of system files (file=%fd.name user=%user.name container=%container.name)"
+  priority: CRITICAL
+  tags: [kernel, security, system_tampering]
+
+#  Detect hidden processes (Linux rootkits often hide processes)
+- rule: Hidden Process Execution
+  desc: Detect processes that attempt to hide themselves from `ps` or `top`
+  condition: evt.type = execve and proc.name in (".bash", ".sh", ".hidden", "sbin/init")
+  output: "ALERT: Hidden process detected (process=%proc.name user=%user.name container=%container.name)"
+  priority: CRITICAL
+  tags: [kernel, intrusion, rootkit]
+
+#  Detect privilege escalation attempts via CAP_SYS_ADMIN capability
+- rule: Privilege Escalation via CAP_SYS_ADMIN
+  desc: Detect if a process attempts to gain CAP_SYS_ADMIN (used for root-level attacks)
+  condition: evt.type = capset and evt.args contains "CAP_SYS_ADMIN"
+  output: "ALERT: Privilege escalation attempt via CAP_SYS_ADMIN (process=%proc.name user=%user.name)"
+  priority: HIGH
+  tags: [kernel, privilege_escalation, container]
+
+#  Detect execution of ELF binaries from memory (fileless malware attack)
+- rule: Fileless Malware Execution
+  desc: Detect execution of ELF binaries that are not on disk (memory-only attack)
+  condition: exec and not fd.exists
+  output: "ALERT: Fileless malware detected - Executing binary from memory (process=%proc.name user=%user.name)"
+  priority: CRITICAL
+  tags: [kernel, memory_exploit, malware]
+
+#  Detect process escape attempts by breaking out of cgroups
+- rule: Container Escape Attempt
+  desc: Detect if a process tries to break out of its assigned cgroup (possible container escape)
+  condition: container and evt.type = execve and not proc.cgroup in ("/kubepods.slice")
+  output: "ALERT: Container escape attempt detected (process=%proc.name container=%container.name)"
+  priority: CRITICAL
+  tags: [k8s, container, escape]
